@@ -10,17 +10,12 @@ class NewsServices {
     try {
       final response = await http.get(Uri.parse(universalUrl));
       if (response.statusCode == 200) {
-        final responseBody = jsonDecode(response.body);
-        final List articleResponse = responseBody["articles"];
-        final newsResult = articleResponse
-            .map((e) => NewsModel.fromJson(e))
-            .toList();
-        return newsResult;
-      } else {
-        throw Exception(
-          "Gagal mendapatkan data. Status Code: ${response.statusCode}",
-        );
+        final List articles = jsonDecode(response.body)["articles"];
+        return articles.map((e) => NewsModel.fromJson(e)).toList();
       }
+      throw Exception(
+        "Gagal mendapatkan data. Status Code: ${response.statusCode}",
+      );
     } catch (e) {
       throw Exception("Error Detail: $e");
     }
