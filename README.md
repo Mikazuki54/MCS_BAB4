@@ -1,7 +1,7 @@
 # Praktikum Mobile Cloud Services (MCS) - BAB 4
 ## Implementasi REST API & State Management Provider pada Flutter
 
-Dokumentasi ini berisi panduan konfigurasi, implementasi kode program, serta penjelasan lengkap baris demi baris per file pada proyek Flutter aplikasi berita (**MCS BAB 4**).
+Dokumentasi ini berisi panduan konfigurasi, implementasi kode program yang telah dioptimasi (*clean code & idiomatic Provider*), serta penjelasan lengkap baris demi baris per file pada proyek Flutter aplikasi berita (**MCS BAB 4**).
 
 ---
 
@@ -63,7 +63,7 @@ Dalam praktikum kali ini, kita menggunakan beberapa package tambahan untuk mendu
 
 ## 3. Struktur Direktori Proyek (`lib/`)
 
-Tambahkan beberapa file dan folder ke dalam folder `lib/`, sehingga struktur tree project menjadi seperti berikut:
+Struktur folder dan file pada direktori `lib/` adalah sebagai berikut:
 
 ```text
 lib/
@@ -93,13 +93,11 @@ class NewsSource {
   dynamic name;
 
   NewsSource({required this.id, required this.name});
-  
-  factory NewsSource.fromJson(Map<String, dynamic> json) {
-    return NewsSource(
-      id: json['id'] ?? "berita tidak mempunyai id", 
-      name: json['name'] ?? "berita tidak mempunyai nama",
-    );
-  }
+
+  factory NewsSource.fromJson(Map<String, dynamic> json) => NewsSource(
+    id: json['id'] ?? "berita tidak mempunyai id",
+    name: json['name'] ?? "berita tidak mempunyai nama",
+  );
 }
 
 class NewsModel {
@@ -123,37 +121,33 @@ class NewsModel {
     required this.content,
   });
 
-  factory NewsModel.fromJson(Map<String, dynamic> json) {
-    return NewsModel(
-      source: NewsSource.fromJson(json["source"]), 
-      penulis: json["author"] ?? "Nama penulis tidak tersedia", 
-      judul: json["title"] ?? "Judul artikel tidak tersedia", 
-      deskripsi: json["description"] ?? "Deskripsi artikel tidak tersedia", 
-      url: json["url"] ?? "-", 
-      urlGambar: json["urlToImage"] ?? "https://st3.depositphotos.com/1031343/13659/v/450/depositphotos_136598368-stock-illustration-not-available-sign-or-stamp.jpg", 
-      publishedAt: DateTime.parse(DateTime.now().toIso8601String()), 
-      content: json["content"] ?? "Artikel tidak memiliki konten",
-    );
-  }
+  factory NewsModel.fromJson(Map<String, dynamic> json) => NewsModel(
+    source: NewsSource.fromJson(json["source"] ?? {}),
+    penulis: json["author"] ?? "Nama penulis tidak tersedia",
+    judul: json["title"] ?? "Judul artikel tidak tersedia",
+    deskripsi: json["description"] ?? "Deskripsi artikel tidak tersedia",
+    url: json["url"] ?? "-",
+    urlGambar: json["urlToImage"] ??
+        "https://st3.depositphotos.com/1031343/13659/v/450/depositphotos_136598368-stock-illustration-not-available-sign-or-stamp.jpg",
+    publishedAt: DateTime.tryParse(json["publishedAt"] ?? "") ?? DateTime.now(),
+    content: json["content"] ?? "Artikel tidak memiliki konten",
+  );
 }
 ```
 
 ### Penjelasan Kode:
-File tersebut berisikan beberapa baris program yang digunakan dalam membuat model yang dapat merepresentasikan data API dalam bentuk *Dart Object*. Hal ini diperlukan agar proses konsumsi (*consume*) data API menjadi lebih mudah, aman terhadap tipe data (*type-safe*), dan lebih terstruktur dalam pengembangan aplikasi.
-
-Terdapat 2 class yang dibangun berdasarkan format respon data yang diberikan oleh News API:
-- **`[NewsSource]`**: Digunakan untuk merepresentasikan data asal sumber berita yang tersimpan pada array/objek `source` pada API. Class ini memiliki atribut `id` dan `name`. Pada class tersebut terdapat constructor yang bersifat `required` untuk memastikan kedua atribut terisi. Kemudian terdapat *named constructor* factory `NewsSource.fromJson` yang melakukan *mapping* nilai key JSON ke objek Dart dengan operator *null-coalescing* (`??`) sebagai nilai cadangan (*fallback*) jika data bernilai null.
-- **`[NewsModel]`**: Merupakan model utama yang merepresentasikan satu entitas data artikel berita secara umum. Class ini memiliki atribut yang lebih komprehensif, meliputi `source` (bertipe `NewsSource`), `penulis`, `judul`, `deskripsi`, `url`, `urlGambar`, `publishedAt`, dan `content`. Constructor pada `NewsModel` bersifat `required` untuk menjamin integritas data. Pada metode `NewsModel.fromJson`, dilakukan pemetaan nilai dari respons JSON:
-  - Mengonversi objek bersarang (*nested object*) `source` dengan memanggil `NewsSource.fromJson(json["source"])`.
-  - Memberikan nilai default apabila field author, title, description, url, atau content bernilai null.
-  - Menyediakan URL gambar placeholder jika `urlToImage` tidak tersedia agar tampilan UI tidak rusak.
-  - Mengonversi tanggal ke format objek `DateTime`.
+File tersebut berisikan class model yang merepresentasikan data dari News API dalam bentuk objek Dart (*type-safe*):
+- **`NewsSource`**: Merepresentasikan data sumber berita (`id` dan `name`). Menggunakan *arrow syntax* (`=>`) pada constructor factory `fromJson` untuk pemetaan JSON yang ringkas.
+- **`NewsModel`**: Merepresentasikan satu entitas artikel lengkap.
+  - Memanfaatkan operator null-coalescing (`??`) untuk memberikan nilai default apabila data bernilai `null` dari server.
+  - Menyediakan fallback URL gambar placeholder jika `urlToImage` kosong agar tidak menyebabkan error tampilan.
+  - Mengonversi data waktu dengan fungsi `DateTime.tryParse(json["publishedAt"] ?? "") ?? DateTime.now()` sehingga waktu rilis berita asli dari API dapat dibaca dengan aman tanpa risiko exception parsing.
 
 ---
 
 ## 5. Layanan Pengambilan Data API (`lib/services/news_services.dart`)
 
-Berikutnya masuklah ke dalam file `news_services.dart` dan masukkan kode program berikut di dalamnya:
+Berikutnya masuklah ke dalam file `news_services.dart` dan masukkan kode program berikut:
 
 ```dart
 import 'dart:convert';
@@ -167,17 +161,12 @@ class NewsServices {
     try {
       final response = await http.get(Uri.parse(universalUrl));
       if (response.statusCode == 200) {
-        final responseBody = jsonDecode(response.body);
-        final List articleResponse = responseBody["articles"];
-        final newsResult = articleResponse
-            .map((e) => NewsModel.fromJson(e))
-            .toList();
-        return newsResult;
-      } else {
-        throw Exception(
-          "Gagal mendapatkan data. Status Code: ${response.statusCode}",
-        );
+        final List articles = jsonDecode(response.body)["articles"];
+        return articles.map((e) => NewsModel.fromJson(e)).toList();
       }
+      throw Exception(
+        "Gagal mendapatkan data. Status Code: ${response.statusCode}",
+      );
     } catch (e) {
       throw Exception("Error Detail: $e");
     }
@@ -186,67 +175,64 @@ class NewsServices {
 ```
 
 ### Penjelasan Kode:
-Class **`[NewsServices]`** berisikan logika program yang diperlukan untuk mengambil data berita dari server News API:
-- **`universalUrl`**: Variabel yang menyimpan endpoint URL News API beserta parameter pencarian dan API Key milik masing-masing pengembang.
-- **`getAllNewsData()`**: Metode *asynchronous* yang mengembalikan `Future<List<NewsModel>>`. 
-  - Sistem mengirimkan HTTP request dengan memanggil `http.get(Uri.parse(universalUrl))` dan menampung hasilnya ke dalam variabel `response`.
-  - Sistem memeriksa kode status HTTP (`response.statusCode`). Jika kode status bernilai `200` (OK/berhasil), sistem mengambil data body yang masih berupa string JSON mentah dan menguraikannya menggunakan fungsi `jsonDecode(response.body)` ke dalam variabel `responseBody`.
-  - Selanjutnya, array data artikel diambil dari key `"articles"` ke dalam variabel `articleResponse` bertipe `List`.
-  - Menggunakan metode transformasi `.map((e) => NewsModel.fromJson(e)).toList()`, setiap elemen data JSON diubah menjadi objek Dart `NewsModel` dan dikembalikan sebagai hasil akhir fungsi.
-  - Jika `statusCode` bukan 200 atau terjadi kendala koneksi, blok `try-catch` akan menangkap kegagalan tersebut dan melempar `Exception` dengan rincian pesan kesalahan.
+Class **`NewsServices`** mengisolasi seluruh logika koneksi jaringan dan konsumsi REST API:
+- **`universalUrl`**: Menyimpan endpoint URL News API beserta query dan parameter API key.
+- **`getAllNewsData()`**: Fungsi *asynchronous* yang mengembalikan `Future<List<NewsModel>>`:
+  - Mengirim HTTP GET request via `http.get(Uri.parse(universalUrl))`.
+  - Jika `statusCode == 200`, respon JSON didecode dan array `"articles"` langsung dipetakan ke list objek `NewsModel` melalui chaining ringkas `.map((e) => NewsModel.fromJson(e)).toList()`.
+  - Jika server merespon dengan status code selain 200 atau terjadi kendala jaringan, blok `try-catch` melempar `Exception` deskriptif.
 
 ---
 
 ## 6. Manajemen State Aplikasi (`lib/provider/app_provider.dart`)
 
-Selanjutnya dibentuklah class provider bernama `AppProvider` yang menge-*extends* `ChangeNotifier`. Berikut kode yang digunakan pada class `AppProvider`:
+Berikut implementasi `AppProvider` yang mematuhi standar *State Management* Provider dan prinsip pemisahan tanggung jawab (*Separation of Concerns*):
 
 ```dart
 import 'package:bab4/model/news_model.dart';
 import 'package:flutter/material.dart';
 
 class AppProvider extends ChangeNotifier {
-  NewsSource? source;
-  late String namaPenulis;
-  late String judulArtikel;
-  late String deskripsiArtikel;
-  late String linkArtikel;
-  late String gambarArtikel;
-  late DateTime tanggalPublish;
-  late String kontenArticle;
+  NewsModel? _selectedNews;
   int? index;
 
-  goToDetailNews({
+  NewsModel? get selectedNews => _selectedNews;
+
+  // Getter kompatibel dengan kode yang sudah ada tanpa perlu mengubah detail_page
+  NewsSource? get source => _selectedNews?.source;
+  String get namaPenulis => _selectedNews?.penulis ?? "Nama penulis tidak tersedia";
+  String get judulArtikel => _selectedNews?.judul ?? "Judul artikel tidak tersedia";
+  String get deskripsiArtikel => _selectedNews?.deskripsi ?? "Deskripsi artikel tidak tersedia";
+  String get linkArtikel => _selectedNews?.url ?? "-";
+  String get gambarArtikel => _selectedNews?.urlGambar ??
+      "https://st3.depositphotos.com/1031343/13659/v/450/depositphotos_136598368-stock-illustration-not-available-sign-or-stamp.jpg";
+  DateTime get tanggalPublish => _selectedNews?.publishedAt ?? DateTime.now();
+  String get kontenArticle => _selectedNews?.content ?? "Artikel tidak memiliki konten";
+
+  void setSelectedNews(NewsModel newsModel, [int? itemIndex]) {
+    _selectedNews = newsModel;
+    index = itemIndex;
+    notifyListeners();
+  }
+
+  // Tetap disediakan untuk kompatibilitas jika modul tugas mewajibkan method ini
+  void goToDetailNews({
     required BuildContext context,
     required NewsModel newsModel,
     required int index,
-    required navigationPage,
-  }) async {
-    this.index = index;
-    source = newsModel.source;
-    namaPenulis = newsModel.penulis;
-    judulArtikel = newsModel.judul;
-    deskripsiArtikel = newsModel.deskripsi;
-    linkArtikel = newsModel.url;
-    gambarArtikel = newsModel.urlGambar;
-    tanggalPublish = newsModel.publishedAt;
-    kontenArticle = newsModel.content;
-
-    notifyListeners();
-    Navigator.push(
-      context, 
-      MaterialPageRoute(builder: (context) => navigationPage),
-    );
+    required Widget navigationPage,
+  }) {
+    setSelectedNews(newsModel, index);
+    Navigator.push(context, MaterialPageRoute(builder: (_) => navigationPage));
   }
 }
 ```
 
-### Penjelasan Kode:
-Class **`[AppProvider]`** bertindak sebagai pengelola state (*State Management*) terpusat dengan mengimplementasikan pola *Observer* melalui `ChangeNotifier`:
-- **State Properties**: Menyimpan variabel status artikel yang sedang aktif dipilih pengguna, antara lain `source`, `namaPenulis`, `judulArtikel`, `deskripsiArtikel`, `linkArtikel`, `gambarArtikel`, `tanggalPublish`, `kontenArticle`, dan `index`.
-- **`goToDetailNews()`**: Fungsi yang dieksekusi ketika salah satu kartu berita pada halaman utama diklik oleh pengguna. Fungsi ini menerima `BuildContext`, data `NewsModel` terpilih, indeks berita, serta halaman tujuan `navigationPage` (`DetailPage`).
-- **`notifyListeners()`**: Berfungsi mengirimkan sinyal notifikasi kepada seluruh widget pendengar (*listener*) yang dibungkus oleh `Consumer<AppProvider>` bahwa nilai data state telah diperbarui sehingga antarmuka detail langsung terisi data terbaru.
-- **`Navigator.push`**: Mengarahkan perpindahan rute halaman secara dinamis menuju `DetailPage`.
+### Penjelasan & Peningkatan Arsitektur:
+1. **Single Source of Truth (`_selectedNews`)**: Alih-alih membongkar `NewsModel` ke 8 variabel terpisah dengan kata kunci `late` (yang rawan menyebabkan crash `LateInitializationError` jika diakses sebelum diinisialisasi), provider kini menyimpan referensi objek model tunggal yang dipilih.
+2. **Getter Kompatibel**: Seluruh getter (`namaPenulis`, `judulArtikel`, `gambarArtikel`, dll.) disediakan sehingga kode antarmuka pada halaman detail tetap dapat membaca data secara langsung tanpa perlu mengubah pemanggilan variabel.
+3. **`setSelectedNews()`**: Metode inti untuk memperbarui state berita terpilih dan memicu `notifyListeners()` untuk memberi tahu seluruh widget konsumen.
+4. **Pemisahan Navigasi**: Urusan routing navigasi UI diarahkan ke widget asal (UI layer), sementara method `goToDetailNews()` tetap dipertahankan dengan tipe data parameter yang aman (`Widget navigationPage`) untuk menjamin kompatibilitas modul praktikum.
 
 ---
 
@@ -291,17 +277,17 @@ class AppStyles {
 ```
 
 ### Penjelasan Kode:
-Class **`[AppStyles]`** berfungsi sebagai *Design Token* untuk standardisasi gaya teks (*typography*) pada aplikasi:
-- **`titleFontStyle`**: Menggunakan font Google `Oswald` ukuran 17 pt, warna putih, dan `FontWeight.bold`, digunakan untuk judul utama pada AppBar dan judul artikel berita.
-- **`subTitleFontStyle`**: Menggunakan font Google `RobotoFlex` ukuran 17 pt, warna putih, dan `FontWeight.bold`, digunakan untuk judul artikel pada kartu grid beranda.
-- **`subTitleFontWIthStrokeStyle`**: Menggunakan font Google `RobotoMono` dengan atribut `foreground: Paint()` berupa garis tepi (*stroke*) warna hitam setebal 5 px untuk menciptakan teks dengan efek kontras outline.
-- **`universalFontStyle`**: Menggunakan font Google `Poppins` ukuran 14 pt warna putih, digunakan untuk teks umum, label metadata, serta isi deskripsi berita.
+Class **`AppStyles`** berfungsi sebagai token desain tipografi terpusat:
+- **`titleFontStyle`**: Font Google `Oswald` (17 pt, bold, putih) untuk AppBar dan judul artikel.
+- **`subTitleFontStyle`**: Font Google `RobotoFlex` (17 pt, bold, putih) untuk judul artikel pada kartu grid beranda.
+- **`subTitleFontWIthStrokeStyle`**: Font Google `RobotoMono` dengan outline border hitam 5 px.
+- **`universalFontStyle`**: Font Google `Poppins` (14 pt, putih) untuk metadata dan isi deskripsi artikel.
 
 ---
 
 ## 8. Halaman Beranda (`lib/screens/home_page.dart`)
 
-Masuklah ke dalam file `home_page.dart` dan masukkan kode program berikut:
+Berikut implementasi `HomePage` yang ringkas dan efisien:
 
 ```dart
 import 'package:bab4/provider/app_provider.dart';
@@ -312,95 +298,79 @@ import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:provider/provider.dart';
 
-class HomePage extends StatefulWidget {
+class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
-}
-
-class _HomePageState extends State<HomePage> {
-  @override
   Widget build(BuildContext context) {
-    return Consumer<AppProvider>(
-      builder: (context, appProvider, child) {
-        return Scaffold(
-          appBar: AppBar(
-            title: Text("MCS BAB 4", style: AppStyles.titleFontStyle),
-            centerTitle: true,
-          ),
-          body: FutureBuilder(
-            future: NewsServices().getAllNewsData(), 
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return Center(child: CircularProgressIndicator());
-              } else if (snapshot.hasError) {
-                return Center(child: Text("Error: ${snapshot.error}"));
-              } else {
-                final getAllArticle = snapshot.data;
-                return MasonryGridView.count(
-                  mainAxisSpacing: 8,
-                  crossAxisSpacing: 10,
-                  crossAxisCount: 3,
-                  itemCount: getAllArticle!.length, 
-                  itemBuilder: (context, index) {
-                    final getSingleArticle = getAllArticle[index];
-                    return InkWell(
-                      child: Column(
-                        children: [
-                          Image.network(
-                            getSingleArticle.urlGambar,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Image.network(
-                                "https://st3.depositphotos.com/1031343/13659/v/450/depositphotos_136598368-stock-illustration-not-available-sign-or-stamp.jpg",
-                                fit: BoxFit.cover,
-                              );
-                            },
-                          ),
-                          Text(
-                            getSingleArticle.judul,
-                            style: AppStyles.subTitleFontStyle,
-                          ),
-                        ],
-                      ),
-                      onTap: () {
-                        appProvider.goToDetailNews(
-                          context: context, 
-                          newsModel: getSingleArticle, 
-                          index: index, 
-                          navigationPage: const DetailPage(),
-                        );
-                      },
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("MCS BAB 4", style: AppStyles.titleFontStyle),
+        centerTitle: true,
+      ),
+      body: FutureBuilder(
+        future: NewsServices().getAllNewsData(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            return Center(child: Text("Error: $snapshot"));
+          } else {
+            final getAllArticle = snapshot.data;
+            return MasonryGridView.count(
+              mainAxisSpacing: 8,
+              crossAxisSpacing: 10,
+              crossAxisCount: 3,
+              itemCount: getAllArticle!.length,
+              itemBuilder: (context, index) {
+                final getSingleArticle = getAllArticle[index];
+                return InkWell(
+                  onTap: () {
+                    context.read<AppProvider>().setSelectedNews(getSingleArticle, index);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const DetailPage()),
                     );
                   },
+                  child: Column(
+                    children: [
+                      Image.network(
+                        getSingleArticle.urlGambar,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => Image.network(
+                          "https://st3.depositphotos.com/1031343/13659/v/450/depositphotos_136598368-stock-illustration-not-available-sign-or-stamp.jpg",
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      Text(
+                        getSingleArticle.judul,
+                        style: AppStyles.subTitleFontStyle,
+                      ),
+                    ],
+                  ),
                 );
-              }
-            },
-          ),
-        );
-      },
+              },
+            );
+          }
+        },
+      ),
     );
   }
 }
 ```
 
-### Penjelasan Kode:
-Class **`[HomePage]`** merupakan antarmuka utama yang menampilkan feed berita dalam bentuk grid staggered:
-- **`Consumer<AppProvider>`**: Membungkus seluruh tampilan halaman agar dapat berinteraksi secara langsung dengan state dan metode yang ada di `AppProvider`.
-- **`FutureBuilder`**: Widget pembangun UI berbasis proses *asynchronous* dari pemanggilan fungsi `NewsServices().getAllNewsData()`:
-  - `ConnectionState.waiting`: Menampilkan indikator loading animasi `CircularProgressIndicator` di tengah layar saat data berita masih dalam proses unduh dari API.
-  - `snapshot.hasError`: Menampilkan pesan teks kesalahan apabila terjadi kegagalan jaringan atau parsing.
-  - Kondisi data berhasil diterima: Data artikel disimpan pada variabel `getAllArticle`.
-- **`MasonryGridView.count`**: Komponen dari package `flutter_staggered_grid_view` yang menyusun tata letak grid dengan 3 kolom (`crossAxisCount: 3`), jarak antar kolom 10 px (`crossAxisSpacing: 10`), dan jarak vertikal 8 px (`mainAxisSpacing: 8`).
-- **`InkWell`**: Memberikan efek respons sentuhan (*splash/ripple effect*) pada setiap kartu berita. Ketika ditekan (`onTap`), sistem memanggil fungsi `appProvider.goToDetailNews()` untuk menyetel data artikel yang dipilih ke provider dan menavigasikan pengguna ke `DetailPage`.
-- **`Image.network` & `errorBuilder`**: Memuat gambar artikel dari internet. Apabila link gambar rusak atau tidak dapat dimuat, fungsi `errorBuilder` akan memuat gambar cadangan (*placeholder*) sehingga tampilan aplikasi tetap rapi.
+### Penjelasan & Peningkatan:
+- **`StatelessWidget`**: Menggantikan `StatefulWidget` karena `HomePage` tidak mengelola state lokal (tidak ada `setState`), menghemat baris kode dan alokasi memori.
+- **Konsumsi Provider yang Tepat (`context.read`)**: Menghilangkan wrapper `Consumer<AppProvider>` yang sebelumnya membungkus seluruh `Scaffold`. Pemanggilan provider hanya dibutuhkan saat interaksi klik pengguna (`onTap`) melalui `context.read<AppProvider>().setSelectedNews(...)`, sehingga layar utama tidak perlu di-rebuild secara berlebihan.
+- **Navigasi UI**: Menggunakan rute navigasi standar `Navigator.push(context, MaterialPageRoute(...))` langsung pada UI layer.
+- **`MasonryGridView.count`**: Menata feed kartu berita dengan tata letak grid staggered 3 kolom secara rapi.
+- **Wildcard Parameter (`_, _, _`)**: Menggunakan sintaks wildcard modern Dart untuk parameter yang tidak digunakan pada `errorBuilder`.
 
 ---
 
 ## 9. Halaman Detail Berita (`lib/screens/detail_page.dart`)
 
-Masuklah ke dalam file `detail_page.dart` dan masukkan kode program berikut:
+Berikut implementasi halaman detail berita yang bersih dan bebas nesting berlebih:
 
 ```dart
 import 'package:bab4/provider/app_provider.dart';
@@ -414,101 +384,86 @@ class DetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<AppProvider>(
-      builder: ((context, appProvider, child) {
-        return Scaffold(
-          appBar: AppBar(
-            title: Text("Detail News", style: AppStyles.titleFontStyle),
-            centerTitle: true,
-          ),
-          body: ListView(
-            children: [
-              AspectRatio(
-                aspectRatio: 16 / 9,
-                child: Image.network(
-                  appProvider.gambarArtikel,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Image.network(
-                      "https://st3.depositphotos.com/1031343/13659/v/450/depositphotos_136598368-stock-illustration-not-available-sign-or-stamp.jpg",
-                      fit: BoxFit.cover,
-                    );
-                  },
-                ),
+    final appProvider = context.watch<AppProvider>();
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("Detail News", style: AppStyles.titleFontStyle),
+        centerTitle: true,
+      ),
+      body: ListView(
+        children: [
+          AspectRatio(
+            aspectRatio: 16 / 9,
+            child: Image.network(
+              appProvider.gambarArtikel,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => Image.network(
+                "https://st3.depositphotos.com/1031343/13659/v/450/depositphotos_136598368-stock-illustration-not-available-sign-or-stamp.jpg",
+                fit: BoxFit.cover,
               ),
-              const SizedBox(height: 20),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  appProvider.judulArtikel,
+                  style: AppStyles.titleFontStyle,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 15),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      appProvider.judulArtikel,
-                      style: AppStyles.titleFontStyle,
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 15),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          "Penulis",
-                          style: AppStyles.universalFontStyle,
-                        ),
-                        const SizedBox(width: 50),
-                        Expanded(child: Text(": ${appProvider.namaPenulis}")),
-                      ],
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          "Published",
-                          style: AppStyles.universalFontStyle,
-                        ),
-                        const SizedBox(width: 30),
-                        Expanded(
-                          child: Text(
-                            ": ${DateFormat("d MMMM yyyy").format(appProvider.tanggalPublish)}",
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 40),
-                    Text(
-                      "Description News",
-                      style: AppStyles.titleFontStyle,
-                    ),
-                    Text(
-                      appProvider.deskripsiArtikel,
-                      style: AppStyles.universalFontStyle,
-                      textAlign: TextAlign.justify,
+                    Text("Penulis", style: AppStyles.universalFontStyle),
+                    const SizedBox(width: 50),
+                    Expanded(child: Text(": ${appProvider.namaPenulis}")),
+                  ],
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text("Published", style: AppStyles.universalFontStyle),
+                    const SizedBox(width: 30),
+                    Expanded(
+                      child: Text(
+                        ": ${DateFormat("d MMMM yyyy").format(appProvider.tanggalPublish)}",
+                      ),
                     ),
                   ],
                 ),
-              ),
-            ],
+                const SizedBox(height: 40),
+                Text("Description News", style: AppStyles.titleFontStyle),
+                Text(
+                  appProvider.deskripsiArtikel,
+                  style: AppStyles.universalFontStyle,
+                  textAlign: TextAlign.justify,
+                ),
+              ],
+            ),
           ),
-        );
-      }),
+        ],
+      ),
     );
   }
 }
 ```
 
-### Penjelasan Kode:
-Class **`[DetailPage]`** merupakan antarmuka untuk menyajikan rincian lengkap dari artikel berita yang telah dipilih:
-- **`Consumer<AppProvider>`**: Mengonsumsi data state berita secara langsung dari `AppProvider` tanpa perlu mengirimkan objek melalui parameter constructor widget.
-- **`AspectRatio(aspectRatio: 16 / 9, ...)`**: Menjaga proporsi tampilan gambar utama berita pada rasio layar 16:9 agar gambar tidak terdistorsi dan mengisi lebar layar secara konsisten.
-- **`DateFormat("d MMMM yyyy")`**: Memanfaatkan pustaka `intl` untuk memformat objek `DateTime` (`appProvider.tanggalPublish`) menjadi format penanggalan yang rapi dan mudah dipahami (misalnya: *25 Oktober 2026*).
-- **Struktur Metadata (`Row` & `Expanded`)**: Menampilkan nama penulis dan tanggal terbit secara terstruktur menggunakan perataan horizontal.
-- **Deskripsi Berita**: Menampilkan teks deskripsi artikel dengan gaya teks `AppStyles.universalFontStyle` dan perataan rata kiri-kanan (`TextAlign.justify`).
+### Penjelasan & Peningkatan:
+- **`context.watch<AppProvider>()`**: Menggantikan pembungkus `Consumer<AppProvider>(builder: ...)` bersarang, meratakan hierarki widget (*flat widget tree*), serta memangkas indentasi kode tanpa mengubah fungsionalitas reaktivitas.
+- **Konsistensi Properti**: Seluruh nilai properti berita (`appProvider.gambarArtikel`, `appProvider.judulArtikel`, `appProvider.namaPenulis`, `appProvider.tanggalPublish`, `appProvider.deskripsiArtikel`) terbaca langsung secara mulus melalui getter pada provider.
+- **`AspectRatio(aspectRatio: 16 / 9)`**: Menjaga proporsi tampilan banner berita.
+- **`DateFormat` dari package `intl`**: Memformat objek `DateTime` ke format teks tanggal yang mudah dipahami (contoh: *25 Oktober 2026*).
 
 ---
 
 ## 10. Titik Masuk Utama Aplikasi (`lib/main.dart`)
 
-Masuklah ke dalam file `main.dart` dan masukkan kode program berikut:
+Berikut implementasi file `main.dart`:
 
 ```dart
 import 'package:bab4/provider/app_provider.dart';
@@ -516,9 +471,7 @@ import 'package:bab4/screens/home_page.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-void main() {
-  runApp(const MyApp());
-}
+void main() => runApp(const MyApp());
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -526,9 +479,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (context) => AppProvider()),
-      ],
+      providers: [ChangeNotifierProvider(create: (_) => AppProvider())],
       child: MaterialApp(
         title: "MCS BAB 4",
         debugShowCheckedModeBanner: false,
@@ -541,11 +492,6 @@ class MyApp extends StatelessWidget {
 ```
 
 ### Penjelasan Kode:
-File `main.dart` merupakan titik awal (*entry point*) eksekusi program Flutter:
-- **`void main()`**: Fungsi utama yang memanggil `runApp(const MyApp())` untuk menginisialisasi dan merender root widget ke layar perangkat.
-- **`MultiProvider` & `ChangeNotifierProvider`**: Ditempatkan di puncak hierarki widget tree aplikasi untuk menginstansiasi `AppProvider`. Penempatan ini memastikan seluruh widget turunan dalam aplikasi dapat mengakses dan mendengarkan perubahan state pada `AppProvider`.
-- **`MaterialApp`**:
-  - `title: "MCS BAB 4"`: Menentukan judul aplikasi pada task manager sistem operasi.
-  - `debugShowCheckedModeBanner: false`: Menghilangkan banner debug di pojok kanan atas tampilan aplikasi.
-  - `theme: ThemeData.dark()`: Menerapkan tema gelap (*dark theme*) secara global pada seluruh halaman dan elemen antarmuka.
-  - `home: const HomePage()`: Menetapkan `HomePage` sebagai halaman awal yang pertama kali dimuat saat aplikasi dibuka.
+- **`void main() => runApp(const MyApp());`**: Menggunakan ekspresi arrow satu baris untuk inisialisasi aplikasi.
+- **`MultiProvider` & `ChangeNotifierProvider`**: Menginisialisasi `AppProvider` di root aplikasi agar seluruh widget turunan dapat mendengarkan perubahan state secara global.
+- **`MaterialApp`**: Mengonfigurasi tema gelap (`ThemeData.dark()`), mematikan banner debug (`debugShowCheckedModeBanner: false`), dan menetapkan `const HomePage()` sebagai rute tampilan awal aplikasi.
