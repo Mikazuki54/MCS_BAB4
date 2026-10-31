@@ -9,15 +9,13 @@ class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [ChangeNotifierProvider(create: (_) => AppProvider())],
-      child: MaterialApp(
-        title: "MCS BAB 4",
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData.dark(),
-        home: const HomePage(),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => ChangeNotifierProvider(
+    create: (_) => AppProvider(),
+    child: MaterialApp(
+      title: "MCS BAB 4",
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData.dark(),
+      home: const HomePage(),
+    ),
+  );
 }

@@ -9,7 +9,7 @@ class DetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final appProvider = context.watch<AppProvider>();
+    final news = context.watch<AppProvider>().selectedNews!;
 
     return Scaffold(
       appBar: AppBar(
@@ -21,7 +21,7 @@ class DetailPage extends StatelessWidget {
           AspectRatio(
             aspectRatio: 16 / 9,
             child: Image.network(
-              appProvider.gambarArtikel,
+              news.urlGambar,
               fit: BoxFit.cover,
               errorBuilder: (_, _, _) => Image.network(
                 "https://st3.depositphotos.com/1031343/13659/v/450/depositphotos_136598368-stock-illustration-not-available-sign-or-stamp.jpg",
@@ -29,24 +29,19 @@ class DetailPage extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 20),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  appProvider.judulArtikel,
-                  style: AppStyles.titleFontStyle,
-                  textAlign: TextAlign.center,
-                ),
+                Text(news.judul, style: AppStyles.titleFontStyle, textAlign: TextAlign.center),
                 const SizedBox(height: 15),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text("Penulis", style: AppStyles.universalFontStyle),
                     const SizedBox(width: 50),
-                    Expanded(child: Text(": ${appProvider.namaPenulis}")),
+                    Expanded(child: Text(": ${news.penulis}")),
                   ],
                 ),
                 Row(
@@ -55,19 +50,13 @@ class DetailPage extends StatelessWidget {
                     Text("Published", style: AppStyles.universalFontStyle),
                     const SizedBox(width: 30),
                     Expanded(
-                      child: Text(
-                        ": ${DateFormat("d MMMM yyyy").format(appProvider.tanggalPublish)}",
-                      ),
+                      child: Text(": ${DateFormat("d MMMM yyyy").format(news.publishedAt)}"),
                     ),
                   ],
                 ),
                 const SizedBox(height: 40),
                 Text("Description News", style: AppStyles.titleFontStyle),
-                Text(
-                  appProvider.deskripsiArtikel,
-                  style: AppStyles.universalFontStyle,
-                  textAlign: TextAlign.justify,
-                ),
+                Text(news.deskripsi, style: AppStyles.universalFontStyle, textAlign: TextAlign.justify),
               ],
             ),
           ),
