@@ -49,7 +49,7 @@ class HomePage extends StatelessWidget {
                       item.urlGambar,
                       fit: BoxFit.cover,
                       errorBuilder: (_, _, _) => Image.network(
-                        "https://st3.depositphotos.com/1031343/13659/v/450/depositphotos_136598368-stock-illustration-not-available-sign-or-stamp.jpg",
+                        "https://demofree.sirv.com/nope-not-here.jpg",
                         fit: BoxFit.cover,
                       ),
                     ),

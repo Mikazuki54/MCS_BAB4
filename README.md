@@ -1,15 +1,27 @@
 # Praktikum Mobile Cloud Services (MCS) - BAB 4
 ## Implementasi REST API & State Management Provider pada Flutter
 
-Dokumentasi ini berisi panduan konfigurasi, implementasi kode program yang ringkas (*clean & idiomatic Flutter*), serta penjelasan lengkap per file pada proyek Flutter aplikasi berita (**MCS BAB 4**).
+Dokumentasi ini berisi panduan konfigurasi, implementasi kode program yang ringkas (*clean & idiomatic Flutter*), serta **penjelasan lengkap untuk orang awam beserta analoginya** pada proyek Flutter aplikasi berita (**MCS BAB 4**).
+
+---
+
+## Gambaran Umum: Analogi Cara Kerja Aplikasi
+
+Agar mudah dipahami oleh orang awam, bayangkan aplikasi berita ini seperti **Sebuah Kios Koran Digital**:
+
+1. **`news_model.dart` (Cetakan / Formulir Berita)**: Template standar yang menentukan setiap berita harus punya Judul, Penulis, Foto, Tanggal, dan Isi.
+2. **`news_services.dart` (Kurir Pengambil Berita)**: Kurir yang pergi ke gudang berita di internet (API), mengambil berita mentah, lalu memasukkannya ke dalam cetakan `news_model`.
+3. **`app_provider.dart` (Petugas Pembawa Baki Berita Pilihan)**: Petugas yang memegang dan mengingat berita mana yang sedang Anda tunjuk/pilih agar bisa dibaca di halaman sebelah.
+4. **`app_styles.dart` (Buku Panduan Seragam Huruf)**: Aturan standar jenis huruf, ukuran, dan warna tulisan agar tampilan koran seragam dan rapi.
+5. **`home_page.dart` (Etalase Depan Kios)**: Halaman depan yang memajang daftar foto dan judul berita dalam 3 kolom.
+6. **`detail_page.dart` (Ruang Baca Lengkap)**: Halaman khusus untuk membaca rincian satu berita secara penuh setelah berita di etalase diklik.
+7. **`main.dart` (Saklar Utama / Tombol Power)**: Pintu utama yang menyalakan aplikasi, menyiapkan petugas `app_provider`, mengatur tema gelap, dan membuka halaman `home_page` pertama kali.
 
 ---
 
 ## 1. Konfigurasi Izin Internet Android (`AndroidManifest.xml`)
 
-Setelah file project berhasil terbentuk, pastikan kembali bahwa tampilan yang diberikan oleh Android Studio sudah berada pada menu **Project**. Jika sudah, bukalah file `AndroidManifest.xml` dan tambahkan izin berikut pada file tersebut.
-
-File tersebut dapat diakses melalui path:
+Setelah file project berhasil terbentuk, pastikan tampilan Android Studio berada pada menu **Project**. Bukalah file `AndroidManifest.xml` melalui path:
 `android` > `app` > `src` > `main` > `AndroidManifest.xml`
 
 ```xml
@@ -25,22 +37,20 @@ File tersebut dapat diakses melalui path:
 </manifest>
 ```
 
-### Penjelasan Kode:
-Izin akses internet (`<uses-permission android:name="android.permission.INTERNET"/>`) wajib didefinisikan pada file manifest Android agar aplikasi Flutter diberikan hak oleh sistem operasi Android untuk melakukan komunikasi jaringan data (*networking/HTTP request*) ke server eksternal (News API). Tanpa penambahan izin ini pada level manifest, sistem operasi Android secara otomatis akan memblokir setiap koneksi jaringan keluar dan memicu *exception* (seperti `SocketException`) saat aplikasi berupaya mengambil data dari API.
+### Analogi & Penjelasan untuk Orang Awam:
+- **Analogi**: Bayangkan aplikasi ini seperti kurir yang tinggal di dalam gedung berkeamanan ketat (HP Android). Baris `<uses-permission android:name="android.permission.INTERNET"/>` adalah **surat izin keluar-masuk gerbang** agar kurir aplikasi diizinkan oleh satpam HP untuk pergi ke luar (internet) mengambil berita. Tanpa surat izin ini, kurir akan ditahan di gerbang dan tidak bisa mengambil berita sama sekali.
 
 ---
 
 ## 2. Konfigurasi Dependensi (`pubspec.yaml`)
 
-Kemudian, masuklah ke dalam file `pubspec.yaml` dan tambahkan package berikut ke dalam bagian `dependencies`:
+Masuklah ke dalam file `pubspec.yaml` dan tambahkan package berikut pada bagian `dependencies`:
 
 ```yaml
 dependencies:
   flutter:
     sdk: flutter
 
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   http: ^1.6.0
   provider: ^6.1.5+1
@@ -50,42 +60,44 @@ dependencies:
   device_preview: ^3.0.0
 ```
 
-### Penjelasan Package:
-Dalam praktikum kali ini, kita menggunakan beberapa package tambahan untuk mendukung fitur aplikasi:
-1. **`http`**: Digunakan untuk menangani proses pengiriman request HTTP (metode `GET`) ke endpoint REST API publik serta menerima dan mengolah respon dari server.
-2. **`provider`**: Solusi state management berbasis *reactive listener* (`ChangeNotifier`) untuk mendistribusikan dan mengelola state data secara terpusat di seluruh widget tree tanpa perlu melakukan *prop drilling* (mengoper data berulang kali melalui constructor widget).
-3. **`google_fonts`**: Mempermudah integrasi berbagai tipografi dan font modern dari pustaka Google Fonts secara dinamis tanpa harus mengunduh file `.ttf`/`.otf` secara manual.
-4. **`intl`**: Menyediakan fungsi utilitas pemformatan tanggal dan waktu (`DateFormat`) agar representasi waktu rilis berita dapat ditampilkan sesuai standar format yang mudah dibaca oleh pengguna.
-5. **`flutter_staggered_grid_view`**: Menyediakan widget layout grid dinamis bergaya *masonry* / *staggered* (seperti Pinterest), sehingga kartu berita dengan tinggi yang bervariasi dapat tersusun secara rapi dan estetis.
-6. **`device_preview`**: Digunakan untuk melakukan simulasi dan pratinjau tampilan antarmuka aplikasi pada berbagai rasio layar perangkat seluler secara langsung.
+### Analogi & Penjelasan Package untuk Orang Awam:
+Jika kita membangun rumah/kios, *package* adalah **perkakas siap pakai** agar kita tidak perlu membuat semuanya dari nol:
+1. **`http` (Kendaraan Kurir)**: Alat transportasi untuk mengirim pesan dan mengambil data berita dari internet.
+2. **`provider` (Sistem Walkie-Talkie / Papan Pengumuman)**: Alat komunikasi antar-halaman agar data berita yang dipilih di halaman depan langsung diketahui oleh halaman detail.
+3. **`google_fonts` (Koleksi Gaya Huruf)**: Katalog berbagai jenis huruf bagus dari Google agar tampilan teks lebih menarik.
+4. **`intl` (Penerjemah Format Tanggal)**: Alat untuk mengubah format tanggal komputer yang kaku (seperti `2026-11-04T10:00:00Z`) menjadi tulisan yang enak dibaca manusia (seperti `4 November 2026`).
+5. **`flutter_staggered_grid_view` (Rak Pajangan Majalah)**: Alat penyusun tata letak kotak-kotak berita bergaya *Pinterest* (3 kolom yang tingginya menyesuaikan isi secara otomatis).
+6. **`device_preview` (Simulator Layar HP)**: Alat untuk mencoba tampilan aplikasi di berbagai ukuran layar HP langsung di komputer.
 
 ---
 
-## 3. Struktur Direktori Proyek (`lib/`)
+## 3. Struktur & Urutan File Proyek (`lib/`)
 
-Struktur folder dan file pada direktori `lib/` adalah sebagai berikut:
+Berikut adalah struktur folder di dalam `lib/` beserta urutan alur penjelasan kodenya:
 
 ```text
 lib/
-├── main.dart
 ├── model/
-│   └── news_model.dart
-├── provider/
-│   └── app_provider.dart
-├── screens/
-│   ├── detail_page.dart
-│   └── home_page.dart
+│   └── news_model.dart        # (1) Cetakan / struktur data berita
 ├── services/
-│   └── news_services.dart
-└── utils/
-    └── app_styles.dart
+│   └── news_services.dart     # (2) Kurir pengambil berita dari API internet
+├── provider/
+│   └── app_provider.dart      # (3) Penyimpan berita yang sedang dipilih
+├── utils/
+│   └── app_styles.dart        # (4) Aturan gaya huruf / tipografi
+├── screens/
+│   ├── home_page.dart         # (5) Tampilan halaman daftar berita (Beranda)
+│   └── detail_page.dart       # (6) Tampilan halaman isi detail berita
+└── main.dart                  # (7) Saklar utama / titik mulai aplikasi
 ```
 
 ---
 
-## 4. Model Data Berita (`lib/model/news_model.dart`)
+## 4. Penjelasan Kode Setiap File (Berurutan)
 
-Masuklah ke dalam file `news_model.dart` dan masukkan kode program berikut:
+---
+
+### Urutan 1: `lib/model/news_model.dart` (Cetakan Data Berita)
 
 ```dart
 class NewsSource {
@@ -127,26 +139,26 @@ class NewsModel {
     judul: json["title"] ?? "Judul artikel tidak tersedia",
     deskripsi: json["description"] ?? "Deskripsi artikel tidak tersedia",
     url: json["url"] ?? "-",
-    urlGambar: json["urlToImage"] ?? "https://st3.depositphotos.com/1031343/13659/v/450/depositphotos_136598368-stock-illustration-not-available-sign-or-stamp.jpg",
+    urlGambar: json["urlToImage"] ?? "https://demofree.sirv.com/nope-not-here.jpg",
     publishedAt: DateTime.tryParse(json["publishedAt"] ?? "") ?? DateTime.now(),
     content: json["content"] ?? "Artikel tidak memiliki konten",
   );
 }
 ```
 
-### Penjelasan Kode:
-File tersebut berisikan class model yang merepresentasikan data dari News API dalam bentuk objek Dart (*type-safe*):
-- **`NewsSource`**: Merepresentasikan data sumber berita (`id` dan `name`) dengan sintaks *arrow function* (`=>`) yang ringkas.
-- **`NewsModel`**: Merepresentasikan satu entitas artikel lengkap.
-  - Memanfaatkan operator null-coalescing (`??`) untuk menetapkan nilai default jika respon bernilai `null`.
-  - Menyediakan fallback URL gambar placeholder jika `urlToImage` tidak tersedia.
-  - Mengonversi data waktu dengan `DateTime.tryParse(json["publishedAt"] ?? "") ?? DateTime.now()` agar aman dari parsing exception.
+#### Analogi untuk Orang Awam:
+Bayangkan file ini seperti **Formulir Biodata Berita**. Data berita yang datang dari internet awalnya masih berantakan seperti tumpukan kertas mentah berbahasa asing (disebut *JSON*). File ini bertugas menjadi **cetakan sekaligus penerjemah** yang menyalin data mentah tersebut ke dalam kotak-kotak formulir yang rapi: kotak *Sumber*, *Penulis*, *Judul*, *Deskripsi*, *URL*, *Gambar*, *Tanggal Terbit*, dan *Konten*.
+
+#### Penjelasan Bagian demi Bagian untuk Orang Awam:
+- **`class NewsSource`**: Cetakan kecil khusus untuk mencatat asal media berita (memiliki `id` dan `name`, misalnya: *BBC News* atau *Kompas*).
+- **`class NewsModel`**: Cetakan utama untuk satu artikel berita utuh yang berisi 8 informasi penting (`sumber`, `penulis`, `judul`, `deskripsi`, `url`, `urlGambar`, `publishedAt`, `content`).
+- **`factory ... fromJson(...)`**: Ini adalah **"mesin penyalin otomatis"**. Saat menerima paket data mentah `json` dari internet, bagian ini mengambil isi tiap label (seperti `json["title"]`) lalu memasukkannya ke variabel `judul`.
+- **Tanda `??` (Rencana Cadangan / *Fallback*)**: Artinya *"kalau kosong, pakai nilai di sebelah kanan"*. Contohnya pada `json["author"] ?? "Nama penulis tidak tersedia"`: jika berita dari internet tidak mencantumkan nama penulis (`null`), aplikasi tidak akan error/rusak, melainkan otomatis menulis *"Nama penulis tidak tersedia"*. Begitu juga jika foto berita kosong (`urlToImage`), maka akan diganti dengan gambar cadangan.
+- **`DateTime.tryParse(...) ?? DateTime.now()`**: Mengubah teks tanggal dari internet menjadi format kalender yang dimengerti aplikasi. Jika tanggal dari internet rusak/kosong, otomatis memakai waktu hari ini.
 
 ---
 
-## 5. Layanan Pengambilan Data API (`lib/services/news_services.dart`)
-
-Berikutnya masuklah ke dalam file `news_services.dart` dan masukkan kode program berikut:
+### Urutan 2: `lib/services/news_services.dart` (Kurir Pengambil Berita)
 
 ```dart
 import 'dart:convert';
@@ -154,7 +166,8 @@ import 'package:bab4/model/news_model.dart';
 import 'package:http/http.dart' as http;
 
 class NewsServices {
-  final universalUrl = "masukkan API KEY URL masing-masing";
+  final universalUrl =
+      "https://newsapi.org/v2/everything?q=tesla&from=2026-11-01&sortBy=publishedAt&apiKey=MASUKKAN_API_KEY";
 
   Future<List<NewsModel>> getAllNewsData() async {
     final response = await http.get(Uri.parse(universalUrl));
@@ -167,19 +180,21 @@ class NewsServices {
 }
 ```
 
-### Penjelasan Kode:
-Class **`NewsServices`** mengisolasi seluruh logika koneksi jaringan dan konsumsi REST API:
-- **`universalUrl`**: Menyimpan endpoint URL News API beserta query dan parameter API key.
-- **`getAllNewsData()`**: Fungsi *asynchronous* yang mengambil data artikel dari News API:
-  - Mengirim HTTP GET request via `http.get(Uri.parse(universalUrl))`.
-  - Jika `statusCode == 200`, respon di-decode dan array `"articles"` langsung dipetakan ke list objek `NewsModel` via `.map().toList()`.
-  - Jika respon gagal, langsung melempar `Exception` dengan status kodenya.
+#### Analogi untuk Orang Awam:
+Bayangkan `NewsServices` adalah **Kurir Pengantar Koran**. Anda memberi kurir ini alamat gudang berita pusat (`universalUrl`). Kurir tersebut berangkat ke internet, mengambil kardus besar berisi kumpulan berita, membukanya, lalu mencetak setiap berita menggunakan cetakan `NewsModel` tadi hingga menjadi tumpukan berita yang siap dipajang di etalase.
+
+#### Penjelasan Bagian demi Bagian untuk Orang Awam:
+- **`universalUrl`**: Alamat tujuan di internet (NewsAPI) tempat berita disimpan, lengkap dengan kata kunci topik yang dicari (misalnya `q=tesla`) dan kunci rahasia akses (`apiKey`).
+- **`Future<List<NewsModel>> getAllNewsData() async`**: Tugas pengambilan berita yang bersifat *"janji di masa depan"* (`Future`). Karena mengambil data dari internet butuh waktu beberapa detik, kata `async` dan `await` menyuruh aplikasi menunggu kurir kembali dengan sabar tanpa membuat layar HP pengguna macet (*freeze*).
+- **`http.get(Uri.parse(universalUrl))`**: Perintah bagi kurir untuk berangkat mengambil data ke alamat URL tersebut.
+- **`if (response.statusCode == 200)`**: Dalam bahasa internet, angka **`200`** artinya **"Sukses / Gudang Buka & Data Diterima"**.
+- **`jsonDecode(response.body)["articles"]`**: Membuka bungkus paket dari internet dan mengambil daftar berita di dalam kantong bernama `"articles"`.
+- **`list.map((e) => NewsModel.fromJson(e)).toList()`**: Memasukkan satu per satu berita mentah (`e`) ke dalam mesin cetakan `NewsModel.fromJson`, lalu menyusunnya menjadi satu daftar (`List`) yang rapi.
+- **`throw Exception(...)`**: Jika angka statusnya bukan `200` (misal `404` alamat tidak ditemukan atau `401` kunci API salah), kurir akan melapor bahwa pengambilan data gagal.
 
 ---
 
-## 6. Manajemen State Aplikasi (`lib/provider/app_provider.dart`)
-
-Berikut implementasi `AppProvider` yang sangat ringkas, bersih, dan mematuhi kaidah State Management Provider:
+### Urutan 3: `lib/provider/app_provider.dart` (Pengelola Berita yang Dipilih)
 
 ```dart
 import 'package:bab4/model/news_model.dart';
@@ -195,16 +210,19 @@ class AppProvider extends ChangeNotifier {
 }
 ```
 
-### Penjelasan Kode:
-1. **Model Utuh (`selectedNews`)**: Provider hanya bertugas mengelola state data berita yang sedang aktif dipilih pengguna, tanpa perlu memecah objek ke banyak variabel terpisah atau menggunakan variabel `late`.
-2. **`setSelectedNews(news)`**: Memperbarui artikel yang dipilih dan memicu `notifyListeners()` untuk memperbarui widget yang mendengarkan perubahan data.
-3. **Pemisahan Peran**: Logika navigasi antar halaman berada di UI layer (widget), sehingga `AppProvider` sepenuhnya independen dari `BuildContext` dan `Navigator`.
+#### Analogi untuk Orang Awam:
+Bayangkan `AppProvider` adalah **Petugas Pembawa Baki (atau Papan Pengumuman Pusat)**.
+Di halaman depan ada puluhan berita. Ketika jari Anda mengklik **satu berita**, bagaimana caranya halaman baca (`DetailPage`) tahu berita mana yang baru saja Anda klik?
+Di sinilah tugas `AppProvider`: begitu Anda mengklik sebuah berita, petugas ini menaruh berita tersebut di atas bakinya (`selectedNews`), lalu membunyikan bel (`notifyListeners()`) agar halaman detail langsung menampilkan isi berita yang ada di baki tersebut.
+
+#### Penjelasan Bagian demi Bagian untuk Orang Awam:
+- **`extends ChangeNotifier`**: Memberikan kemampuan "membunyikan bel pengumuman" pada class ini setiap kali ada perubahan data.
+- **`NewsModel? selectedNews`**: Tempat penyimpanan (baki) untuk menampung **1 berita** yang sedang dipilih pengguna. Tanda tanya `?` artinya saat aplikasi baru dibuka dan pengguna belum mengklik berita apa pun, baki ini boleh kosong (`null`).
+- **`void setSelectedNews(NewsModel news)`**: Fungsi untuk mengganti isi baki dengan berita baru (`news`) yang diklik pengguna, lalu memanggil `notifyListeners()` untuk memberi tahu layar yang sedang memantau bahwa datanya sudah siap.
 
 ---
 
-## 7. Sistem Desain dan Tipografi (`lib/utils/app_styles.dart`)
-
-Masuklah ke dalam file `app_styles.dart` untuk mendefinisikan gaya teks yang konsisten di seluruh aplikasi:
+### Urutan 4: `lib/utils/app_styles.dart` (Katalog Seragam Huruf / Tipografi)
 
 ```dart
 import 'package:flutter/material.dart';
@@ -242,18 +260,19 @@ class AppStyles {
 }
 ```
 
-### Penjelasan Kode:
-Class **`AppStyles`** berfungsi sebagai token desain tipografi terpusat:
-- **`titleFontStyle`**: Font Google `Oswald` (17 pt, bold, putih) untuk AppBar dan judul artikel.
-- **`subTitleFontStyle`**: Font Google `RobotoFlex` (17 pt, bold, putih) untuk judul artikel pada kartu grid beranda.
-- **`subTitleFontWIthStrokeStyle`**: Font Google `RobotoMono` dengan garis tepi (*stroke*) hitam 5 px.
-- **`universalFontStyle`**: Font Google `Poppins` (14 pt, putih) untuk metadata dan isi deskripsi artikel.
+#### Analogi untuk Orang Awam:
+Bayangkan file ini adalah **Buku Aturan Seragam Tulisan di Percetakan Koran**. Daripada di setiap halaman kita harus mengatur ulang ukuran huruf, warna putih, dan ketebalan huruf satu-satu, kita cukup membuat "seragam" siap pakai di sini. Jika suatu saat kita ingin mengubah ukuran judul di seluruh aplikasi, kita cukup mengubahnya di satu file ini saja.
+
+#### Penjelasan Bagian demi Bagian untuk Orang Awam:
+- **`static final`**: Membuat gaya huruf ini bisa langsung dipakai dari mana saja cukup dengan memanggil `AppStyles.namaGaya` tanpa perlu membuat objek baru.
+- **`titleFontStyle`**: Seragam untuk **Judul Utama** (memakai font *Oswald*, ukuran 17, warna putih, cetak tebal/bold).
+- **`subTitleFontStyle`**: Seragam untuk **Judul Kartu Berita di Beranda** (memakai font *Roboto Flex*, ukuran 17, putih, tebal).
+- **`subTitleFontWIthStrokeStyle`**: Seragam huruf dengan efek garis tepi (*outline/stroke*) warna hitam setebal 5 piksel.
+- **`universalFontStyle`**: Seragam untuk **teks biasa / isi berita** (memakai font *Poppins*, ukuran 14, warna putih agar nyaman dibaca di latar gelap).
 
 ---
 
-## 8. Halaman Beranda (`lib/screens/home_page.dart`)
-
-Berikut implementasi `HomePage` yang ringkas dan efisien:
+### Urutan 5: `lib/screens/home_page.dart` (Etalase Halaman Beranda)
 
 ```dart
 import 'package:bab4/model/news_model.dart';
@@ -307,7 +326,7 @@ class HomePage extends StatelessWidget {
                       item.urlGambar,
                       fit: BoxFit.cover,
                       errorBuilder: (_, _, _) => Image.network(
-                        "https://st3.depositphotos.com/1031343/13659/v/450/depositphotos_136598368-stock-illustration-not-available-sign-or-stamp.jpg",
+                        "https://demofree.sirv.com/nope-not-here.jpg",
                         fit: BoxFit.cover,
                       ),
                     ),
@@ -324,17 +343,22 @@ class HomePage extends StatelessWidget {
 }
 ```
 
-### Penjelasan Kode:
-- **`StatelessWidget`**: Tidak memerlukan state internal sehingga lebih hemat memori dan baris kode.
-- **Handling Data Ringkas**: Pengecekan status data dilakukan secara simpel dengan `!snapshot.hasData` yang langsung menampilkan error atau indikator loading.
-- **`context.read<AppProvider>()`**: Memanggil fungsi provider hanya ketika artikel diklik (`onTap`) tanpa memicu rebuild yang tidak perlu pada widget induk.
-- **`Navigator.push`**: Mengarahkan perpindahan rute langsung dari UI event listener.
+#### Analogi untuk Orang Awam:
+Bayangkan `HomePage` adalah **Etalase Depan Kios Koran**. Begitu pengunjung datang, etalase ini menyuruh kurir (`NewsServices`) mengambil berita. Sambil menunggu kurir datang, etalase menampilkan roda loading berputar. Begitu kurir sampai membawa berita, etalase langsung memajang foto dan judul berita berjejer 3 kolom. Jika pengunjung menyentuh salah satu berita, berita itu ditaruh ke baki `AppProvider` dan pengunjung diantar masuk ke ruang baca (`DetailPage`).
+
+#### Penjelasan Bagian demi Bagian untuk Orang Awam:
+- **`Scaffold` & `AppBar`**: Kerangka dasar layar HP yang memiliki balok judul di bagian paling atas bertuliskan `"MCS BAB 4"` tepat di tengah (`centerTitle: true`).
+- **`FutureBuilder<List<NewsModel>>`**: "Satpam pemantau kurir". Ia memanggil `NewsServices().getAllNewsData()` lalu memantau hasilnya lewat `snapshot`:
+  - **`if (!snapshot.hasData)`**: Jika paket berita belum ada, ia mengecek apakah karena ada masalah (`snapshot.hasError`) untuk menampilkan teks error, atau karena kurir masih di jalan sehingga cukup menampilkan lingkaran berputar (`CircularProgressIndicator`).
+- **`MasonryGridView.count(...)`**: Rak pajangan 3 kolom (`crossAxisCount: 3`) dengan jarak antar baris `8` piksel dan jarak antar kolom `10` piksel.
+- **`InkWell` & `onTap`**: Membuat kartu berita bisa disentuh/diklik dengan efek riak air:
+  1. `context.read<AppProvider>().setSelectedNews(item)`: Menitipkan berita yang diklik (`item`) ke petugas `AppProvider`.
+  2. `Navigator.push(...)`: Membuka lembaran halaman baru menuju `DetailPage`.
+- **`Image.network` & `errorBuilder`**: Menampilkan foto berita dari internet. Jika link foto dari berita tersebut ternyata rusak/mati, `errorBuilder` otomatis menggantinya dengan foto cadangan agar layar tidak menampilkan kotak merah error.
 
 ---
 
-## 9. Halaman Detail Berita (`lib/screens/detail_page.dart`)
-
-Berikut implementasi halaman detail berita:
+### Urutan 6: `lib/screens/detail_page.dart` (Ruang Baca Detail Berita)
 
 ```dart
 import 'package:bab4/provider/app_provider.dart';
@@ -363,7 +387,7 @@ class DetailPage extends StatelessWidget {
               news.urlGambar,
               fit: BoxFit.cover,
               errorBuilder: (_, _, _) => Image.network(
-                "https://st3.depositphotos.com/1031343/13659/v/450/depositphotos_136598368-stock-illustration-not-available-sign-or-stamp.jpg",
+                "https://demofree.sirv.com/nope-not-here.jpg",
                 fit: BoxFit.cover,
               ),
             ),
@@ -406,23 +430,34 @@ class DetailPage extends StatelessWidget {
 }
 ```
 
-### Penjelasan Kode:
-- **`context.watch<AppProvider>().selectedNews!`**: Mengambil objek berita secara langsung dari provider tanpa wrapper bersarang, sehingga hierarki widget tetap rata (*flat tree*).
-- **Akses Langsung ke Properti Model**: Properti seperti `news.urlGambar`, `news.judul`, `news.penulis`, `news.publishedAt`, dan `news.deskripsi` diakses langsung dari objek model.
+#### Analogi untuk Orang Awam:
+Bayangkan `DetailPage` adalah **Ruang Baca Khusus**. Begitu Anda masuk ke ruangan ini setelah mengklik salah satu berita di depan, ruangan ini langsung mengambil berita yang dibawa oleh petugas `AppProvider`, lalu membentangkannya secara lengkap di atas meja baca: ada foto besar di bagian atas, judul di tengah, keterangan nama penulis dan tanggal rilis, serta paragraf isi deskripsi berita yang rapi.
+
+#### Penjelasan Bagian demi Bagian untuk Orang Awam:
+- **`final news = context.watch<AppProvider>().selectedNews!`**: Mengambil berita yang tadi dititipkan di baki `AppProvider` dan menyimpannya ke dalam variabel `news`.
+- **`ListView`**: Membuat halaman bisa digulir (*scroll*) ke atas dan ke bawah jika teks beritanya panjang.
+- **`AspectRatio(aspectRatio: 16 / 9)`**: Bingkai foto otomatis yang menjaga ukuran gambar utama selalu proporsional seperti layar TV/YouTube (16 banding 9), tidak gepeng dan tidak terlalu memanjang.
+- **`Padding(padding: EdgeInsets.all(20))`**: Memberi jarak pinggiran (margin dalam) sebesar 20 piksel di sekeliling teks agar tulisan tidak menempel mepet ke tepi kaca layar HP.
+- **`Row` & `Expanded`**: Menyusun informasi `"Penulis : ..."` dan `"Published : ..."` secara menyamping kiri-kanan. `Expanded` memastikan jika nama penulis sangat panjang, teksnya otomatis turun ke baris bawah tanpa menabrak batas layar.
+- **`DateFormat("d MMMM yyyy").format(news.publishedAt)`**: Mengubah tanggal berita menjadi format tanggal yang indah dan lengkap (contoh: `4 November 2026`).
+- **`TextAlign.justify`**: Membuat paragraf deskripsi berita rata kiri-kanan seperti layaknya koran atau buku cetak.
 
 ---
 
-## 10. Titik Masuk Utama Aplikasi (`lib/main.dart`)
-
-Berikut implementasi file `main.dart`:
+### Urutan 7: `lib/main.dart` (Saklar Utama / Pintu Masuk Aplikasi)
 
 ```dart
 import 'package:bab4/provider/app_provider.dart';
 import 'package:bab4/screens/home_page.dart';
+import 'package:device_preview/device_preview.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-void main() => runApp(const MyApp());
+void main() {
+  DevicePreview.enable();
+
+  runApp(const MyApp());
+}
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -440,6 +475,16 @@ class MyApp extends StatelessWidget {
 }
 ```
 
-### Penjelasan Kode:
-- **`ChangeNotifierProvider` Tunggal**: Menggantikan pembungkus `MultiProvider` karena aplikasi hanya memerlukan satu provider `AppProvider`.
-- **Ekspresi Arrow (`=>`)**: Membuat deklarasi widget dan inisialisasi aplikasi menjadi sangat ringkas.
+#### Analogi untuk Orang Awam:
+Bayangkan `main.dart` adalah **Saklar Induk Gedung Kios Koran**. Saat Anda menekan ikon aplikasi di layar HP, file inilah yang pertama kali dijalankan oleh HP Anda. Tugasnya adalah menyalakan listrik gedung, memanggil petugas `AppProvider` agar bersiap di posnya untuk melayani seluruh ruangan, memasang dekorasi tema gelap di seluruh gedung, lalu membuka pintu ruang depan (`HomePage`) untuk pengunjung.
+
+#### Penjelasan Bagian demi Bagian untuk Orang Awam:
+- **`void main()`**: Titik start wajib pada setiap program Flutter. Semua kode di dalamnya dieksekusi paling pertama saat aplikasi dibuka.
+- **`DevicePreview.enable()`**: Menyalakan fitur pratinjau perangkat agar tampilan aplikasi dapat diuji coba dengan mudah.
+- **`runApp(const MyApp())`**: Perintah untuk mulai menampilkan widget utama aplikasi (`MyApp`) ke layar.
+- **`ChangeNotifierProvider(create: (_) => AppProvider(), ...)`**: Menempatkan petugas `AppProvider` di posisi paling atas (*root*) aplikasi. Karena ditaruh di puncak gedung, maka semua halaman di bawahnya (baik `HomePage` maupun `DetailPage`) bisa memanggil dan mengakses data dari `AppProvider` kapan saja.
+- **`MaterialApp`**: Pengaturan global aplikasi:
+  - `title: "MCS BAB 4"`: Nama aplikasi di sistem HP.
+  - `debugShowCheckedModeBanner: false`: Menghilangkan pita merah bertuliskan *"DEBUG"* di pojok kanan atas layar agar tampilan bersih.
+  - `theme: ThemeData.dark()`: Mengubah warna dasar seluruh aplikasi menjadi mode gelap (*Dark Mode*).
+  - `home: const HomePage()`: Menentukan bahwa halaman pertama yang langsung dibuka saat aplikasi menyala adalah halaman beranda (`HomePage`).
